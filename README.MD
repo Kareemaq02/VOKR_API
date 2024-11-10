@@ -80,16 +80,18 @@ DEBUG=True
 
 This project uses the Llama3.1 model for AI interactions. You will need to install and set up `ollama` to run this model.
 
-First, install `ollama` (if not already installed):
+First, open your WSL terminal (Ubuntu or your preferred distribution). Then, install `ollama` within WSL:
 
 ```bash
-pip install ollama
+# Inside WSL
+curl -sSL https://ollama.com/install.sh | bash
 ```
 
-Then, run the model:
+Once installed, pull the model:
 
 ```bash
-ollama run llama3.1
+# Inside WSL
+ollama pull llama3.1
 ```
 
 ### 7. Run Migrations
