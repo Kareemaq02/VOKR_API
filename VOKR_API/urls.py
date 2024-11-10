@@ -14,9 +14,14 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
 from django.urls import path
+from VOKR.views.file_views import FileUploadView
+from VOKR.views.session_views import CreateNewSessionView
+from VOKR.views.session_views import SendMessageView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('upload-file/', FileUploadView.as_view(), name='upload-file'),
+    path('create-session/', CreateNewSessionView.as_view(), name='create-session'),
+    path('send-message/<str:session_id>/', SendMessageView.as_view(), name='send_message_to_session'),
 ]
+
