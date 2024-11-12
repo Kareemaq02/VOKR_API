@@ -1,10 +1,12 @@
 from django.db import models
 from django.utils import timezone
+import uuid
 
 class Company(models.Model):
     # Django automatically adds a primary key field named "id"
     name = models.CharField(max_length=255, unique=True)  # Ensuring company names are unique
-
+    access_key = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)  # Unique key for each company
+    
     def __str__(self):
         return self.name
 
