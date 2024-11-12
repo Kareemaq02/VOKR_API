@@ -94,6 +94,14 @@ Once installed, pull the model:
 ollama pull llama3.1
 ```
 
+# Run the database creation command
+
+To Initialize the database, run the following command:
+
+```bash
+python manage.py create_database
+```
+
 ### 7. Run Migrations
 
 Before running the project, you need to apply database migrations to set up the necessary tables. Run the following command:
