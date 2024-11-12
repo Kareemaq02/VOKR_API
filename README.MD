@@ -94,7 +94,7 @@ Once installed, pull the model:
 ollama pull llama3.1
 ```
 
-# Run the database creation command
+### 7. Run the database creation command
 
 To Initialize the database, run the following command:
 
@@ -102,7 +102,7 @@ To Initialize the database, run the following command:
 python manage.py create_database
 ```
 
-### 7. Run Migrations
+### 8. Run Migrations
 
 Before running the project, you need to apply database migrations to set up the necessary tables. Run the following command:
 
@@ -110,7 +110,7 @@ Before running the project, you need to apply database migrations to set up the 
 python manage.py migrate
 ```
 
-### 8. Start the Development Server
+### 9. Start the Development Server
 
 You can now start the Django development server to run the project locally:
 
