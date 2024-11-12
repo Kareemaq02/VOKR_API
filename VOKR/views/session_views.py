@@ -3,9 +3,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
 from django.utils import timezone
-from ..models import Session, Message
+from ..models import Session, Message, Company, File
 import uuid
 import requests
+from ..services.semantic_search import SemanticSearch
 
 class CreateNewSessionView(APIView):
     def post(self, request):
@@ -46,14 +47,38 @@ class CreateNewSessionView(APIView):
         
 class SendMessageView(APIView):
     def post(self, request, session_id):
-        # Get the user's message from the request
+        # Get the user's message and access key from the request
         user_message_content = request.data.get('message')
+        access_key = request.data.get('access_key')
+
         if not user_message_content:
             return Response({"error": "Message content is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not access_key:
+            return Response({"error": "Access key is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             # Start a database transaction
             with transaction.atomic():
+                       
+                # Retrieve the company using the provided access key
+                company = Company.objects.filter(access_key=access_key).first()
+
+                if not company:
+                    return Response({"error": "Invalid access key."}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Retrieve the company ID
+                company_id = company.pk
+
+                # Retrieve the file associated with the company ID
+                company_file = File.objects.filter(company_id=company_id).first()
+
+                if not company_file:
+                    return Response({"error": "No manual file found for this company."}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Perform semantic search to get the extracted answer
+                semantic_search = SemanticSearch(company_file.file_path)
+                extracted_answer = semantic_search.search_manual(user_message_content)
+                
                 # Fetch the session and update its last accessed time
                 session = Session.objects.select_for_update().get(session_id=session_id)
                 session.last_accessed_at = timezone.now()
@@ -70,13 +95,16 @@ class SendMessageView(APIView):
                         "content": msg.message
                     })
 
-                # Add the new user message to the messages list
+                # Create the refined prompt for the assistant
+                prompt = f"""You are working at customer support. Refine it and simplify it and instantly reply without explaining to me that you are an AI and that you are doing this as an answer for what I said above just give me the refined answer without such answers as: "Here is your answer:" or whatever. If the answer was "No relevant information found in the manual", then just explain that you have no idea and ask them to contact the company. Here is the question you are being asked: {user_message_content}, and here is its answer: {extracted_answer}. Answer instantly without sentences similar to "Sure, I'd be happy to help! Here is your refined answer:" or "Of course! Here is your answer:" just place the answer directly"""
+
+                # Append the prompt as the last message in the messages list
                 messages.append({
                     "role": Message.USER_ROLE,
-                    "content": user_message_content
+                    "content": prompt
                 })
 
-                # Send the entire conversation to the chat API (including previous messages and the new user message)
+                # Send the prompt to the chat API
                 chat_api_url = "http://localhost:11434/api/chat"
                 payload = {
                     "model": "llama3.1",
@@ -96,23 +124,19 @@ class SendMessageView(APIView):
                 response_data = response.json()
                 assistant_message_content = response_data.get("message", {}).get("content", "Sorry, I couldn't understand that.")
 
-                # Add the user's message to the Message table
+                # Add the original user's message to the Message table
                 user_message = Message.objects.create(
                     session=session,
                     role=Message.USER_ROLE,
-                    message=user_message_content
+                    message=user_message_content  # Store the original question here
                 )
                 
-                # Add the assistant's message to the Message table
+                # Add the assistant's response to the Message table
                 assistant_message = Message.objects.create(
                     session=session,
                     role=Message.ASSISTANT_ROLE,
                     message=assistant_message_content
                 )
-
-                # Update the session's last accessed time again
-                session.last_accessed_at = timezone.now()
-                session.save()
 
                 # Return the session details along with the messages
                 messages = Message.objects.filter(session=session).order_by('sent_timestamp')
@@ -130,3 +154,4 @@ class SendMessageView(APIView):
             return Response({"error": f"API request failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
             return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
